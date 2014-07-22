@@ -5,7 +5,6 @@ import os
 import requests
 import shutil
 import sys
-import subprocess
 from zipfile import ZipFile
 from distutils.dir_util import copy_tree
 
@@ -47,13 +46,13 @@ def update():
     restart(worker_dir)
   else:
     finisher = file("finishUpdate.bat", 'w')
-    lines = ['ping 127.0.0.1 -n 2 > nul',   # wait 2 seconds
-             'xcopy %s\\* %s\\* /E /Y' % (fishtest_src, fishtest_dir), # copy tree
-             'rmdir /s /q %s' % update_dir, # delete tree
-             'start worker.exe %s' % " ".join(sys.argv[:])] # restart
+    lines = ['@echo off',
+             'ping 127.0.0.1 -n 2 > nul',   # wait 2 seconds
+             'xcopy %s\\* %s\\* /E /Y >> log.txt' % (fishtest_src[:len(fishtest_src)-1], worker_dir), # copy tree
+             'rmdir /s /q %s >> log.txt' % update_dir, # delete tree
+             'worker.exe %s' % " ".join(sys.argv[1:])] # restart
     finisher.write('\n'.join(lines))
     finisher.close()
-    subprocess.Popen("finishUpdate.bat")
-    sys.exit(0)
+    os.execv("finishUpdate.bat", ["%s\\finishUpdate.bat" % worker_dir])
     
 
