@@ -8,10 +8,10 @@ import sys
 from zipfile import ZipFile
 from distutils.dir_util import copy_tree
 
-Py2Exe = False
+Py2Exe = True
 
 WORKER_URL = 'https://github.com/glinscott/fishtest/archive/master.zip' if not Py2Exe \
-else 'https://github.com/glinscott/fishtest/releases/download/v1.0/fishtest-win.zip' # url of compiled executable
+else 'https://github.com/zardav/fishtest/releases/download/windows/worker.zip' # url of compiled executable
 
 
 def restart(worker_dir):
@@ -25,7 +25,7 @@ def restart(worker_dir):
   os.execv(sys.executable, args) # This does not return !
 
 def update():
-  worker_dir = os.path.dirname(os.path.realpath(__file__))
+  worker_dir = os.path.dirname(sys.executable)
   update_dir = os.path.join(worker_dir, 'update')
   if not os.path.exists(update_dir):
     os.makedirs(update_dir)
@@ -47,8 +47,9 @@ def update():
   else:
     finisher = file("finishUpdate.bat", 'w')
     lines = ['@echo off',
-             'ping 127.0.0.1 -n 2 > nul',   # wait 2 seconds
-             'xcopy %s\\* %s\\* /E /Y >> log.txt' % (fishtest_src[:len(fishtest_src)-1], worker_dir), # copy tree
+             'ping 127.0.0.1 -n 2 > nul',   # wait 2 seconds,
+             'del %s\wk.zip > log.txt' % update_dir,
+             'xcopy %s\\* %s\\* /E /Y >> log.txt' % (fishtest_src[:len(fishtest_src)-1], fishtest_dir), # copy tree
              'rmdir /s /q %s >> log.txt' % update_dir, # delete tree
              'worker.exe %s' % " ".join(sys.argv[1:])] # restart
     finisher.write('\n'.join(lines))
