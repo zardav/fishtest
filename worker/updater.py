@@ -8,9 +8,11 @@ import sys
 from zipfile import ZipFile
 from distutils.dir_util import copy_tree
 
-Py2Exe = True
+isPy2Exe = False
+try: __file__
+except NameError: isPy2Exe = True
 
-WORKER_URL = 'https://github.com/glinscott/fishtest/archive/master.zip' if not Py2Exe \
+WORKER_URL = 'https://github.com/glinscott/fishtest/archive/master.zip' if not isPy2Exe \
 else 'https://github.com/zardav/fishtest/releases/download/windows/worker.zip' # url of compiled executable
 
 
@@ -25,7 +27,7 @@ def restart(worker_dir):
   os.execv(sys.executable, args) # This does not return !
 
 def update():
-  worker_dir = os.path.dirname(sys.executable)
+  worker_dir = os.path.dirname(os.path.realpath(__file__) if not isPy2Exe else sys.executable)
   update_dir = os.path.join(worker_dir, 'update')
   if not os.path.exists(update_dir):
     os.makedirs(update_dir)
@@ -40,7 +42,7 @@ def update():
   prefix = os.path.commonprefix([n.filename for n in zip_file.infolist()])
   fishtest_src = os.path.join(update_dir, prefix)
   fishtest_dir = os.path.dirname(worker_dir) # fishtest_dir is assumed to be parent of worker_dir
-  if not Py2Exe:
+  if not isPy2Exe:
     copy_tree(fishtest_src, fishtest_dir)
     shutil.rmtree(update_dir)
     restart(worker_dir)

@@ -14,8 +14,11 @@ from optparse import OptionParser
 from games import run_games
 from updater import update
 
+isPy2Exe = False
+try: __file__
+except NameError: isPy2Exe = True
+
 WORKER_VERSION = 55
-Py2Exe = True
 ALIVE = True
 
 def setup_config_file(config_file):
@@ -108,7 +111,7 @@ def main():
   signal.signal(signal.SIGINT, on_sigint)
   signal.signal(signal.SIGTERM, on_sigint)
 
-  config_file =  (os.path.dirname(os.path.dirname(sys.executable)) + '\\fishtest.cfg') if Py2Exe else 'fishtest.cfg'
+  config_file = 'fishtest.cfg' if not isPy2Exe else (os.path.dirname(os.path.dirname(sys.executable)) + '\\fishtest.cfg')
   config = setup_config_file(config_file)
   parser = OptionParser()
   parser.add_option('-n', '--host', dest='host', default=config.get('parameters', 'host'))
