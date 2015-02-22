@@ -51,7 +51,7 @@ def update():
     lines = ['@echo off',
              'ping 127.0.0.1 -n 2 > nul',   # wait 2 seconds,
              'del %s\wk.zip > log.txt' % update_dir,
-             'xcopy %s\\* %s\\* /E /Y >> log.txt' % (fishtest_src[:len(fishtest_src)-1], fishtest_dir), # copy tree
+             'xcopy %s\\* %s\\* /E /Y >> log.txt' % (fishtest_src[:-1], fishtest_dir), # copy tree
              'rmdir /s /q %s >> log.txt' % update_dir, # delete tree
              'worker.exe %s' % " ".join(sys.argv[1:])] # restart
     finisher.write('\n'.join(lines))
