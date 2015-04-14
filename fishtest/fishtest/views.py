@@ -12,7 +12,7 @@ from email.mime.text import MIMEText
 from collections import defaultdict
 from pyramid.security import remember, forget, authenticated_userid, has_permission
 from pyramid.view import view_config, forbidden_view_config
-from pyramid.httpexceptions import HTTPFound
+from pyramid.httpexceptions import HTTPFound, HTTPBadRequest
 
 import stat_util
 
@@ -153,6 +153,54 @@ def users(request):
   users.sort(key=lambda k: k['cpu_hours'], reverse=True)
   return {'users': users}
 
+
+@view_config(route_name='regression', renderer='regression.mak')
+def regression(request):
+  return {}
+
+def regression_request_isvalid(request):
+  return ("type" in request.GET) and \
+    (request.GET["type"] == "fishtest" or \
+    request.GET["type"] == "jl")
+
+@view_config(route_name='regression_data', renderer='regression_data.mak', permission='modify_stats')
+def regression_data(request):
+  if not regression_request_isvalid(request):
+    return HTTPBadRequest()
+
+  return {
+    'test_type': request.GET["type"],
+    'data': request.regressiondb.get(request.GET["type"])
+   }
+
+@view_config(route_name='regression_data_json', renderer='json')
+def regression_data_json(request):
+  return json.dumps({
+    'fishtest_regression_data': request.regressiondb.get("fishtest", True),
+    'jl_regression_data': request.regressiondb.get("jl", True)
+  })
+
+@view_config(route_name='regression_data_save', request_method='POST', permission='modify_stats')
+def regression_data_save(request):
+  if not regression_request_isvalid(request):
+    return HTTPBadRequest()
+
+  obj = {}
+  for d in request.POST:
+    obj[d] = request.POST[d];
+
+  request.regressiondb.save(request.GET["type"], obj, authenticated_userid(request))
+
+  return HTTPFound(location="/regression/data?type=" + request.GET["type"])
+
+@view_config(route_name='regression_data_delete', request_method='POST', permission='modify_stats')
+def regression_data_delete(request):
+  if not regression_request_isvalid(request) or "_id" not in request.POST:
+    return HTTPBadRequest()
+
+  request.regressiondb.delete(request.POST["_id"])
+  return HTTPFound(location="/regression/data?type=" + request.GET["type"])
+
 def get_sha(branch, repo_url):
   """Resolves the git branch to sha commit"""
   api_url = repo_url.replace('https://github.com', 'https://api.github.com/repos')
@@ -262,6 +310,7 @@ def validate_form(request):
 
   data['threads'] = int(request.POST['threads'])
   data['priority'] = int(request.POST['priority'])
+  data['throughput'] = int(request.POST['throughput'])
 
   if data['threads'] <= 0:
     raise Exception('Threads must be >= 1')
@@ -323,6 +372,7 @@ def tests_modify(request):
     run['finished'] = False
     run['args']['num_games'] = num_games
     run['args']['priority'] = int(request.POST['priority'])
+    run['args']['throughput'] = int(request.POST['throughput'])
     request.rundb.runs.save(run)
 
     request.actiondb.modify_run(authenticated_userid(request), before, run)
@@ -592,7 +642,7 @@ def tests_view(request):
   for name in ['new_tag', 'new_signature', 'new_options', 'resolved_new',
                'base_tag', 'base_signature', 'base_options', 'resolved_base',
                'sprt', 'num_games', 'spsa', 'tc', 'threads', 'book', 'book_depth',
-               'priority', 'username', 'tests_repo', 'info']:
+               'priority', 'internal_priority', 'username', 'tests_repo', 'info']:
 
     if not name in run['args']:
       continue

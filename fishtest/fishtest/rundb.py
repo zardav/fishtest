@@ -1,12 +1,14 @@
 import copy
 import os
 import random
+import time
 from datetime import datetime
 from bson.objectid import ObjectId
 from pymongo import MongoClient, ASCENDING, DESCENDING
 
 from userdb import UserDb
 from actiondb import ActionDb
+from regressiondb import RegressionDb
 from views import parse_tc
 
 import stat_util
@@ -19,6 +21,7 @@ class RunDb:
     self.db = self.conn[db_name]
     self.userdb = UserDb(self.db)
     self.actiondb = ActionDb(self.db)
+    self.regressiondb = RegressionDb(self.db)
     self.runs = self.db['runs']
 
     self.chunk_size = 1000
@@ -53,6 +56,7 @@ class RunDb:
               spsa=None,
               username=None,
               tests_repo=None,
+              throughput=1000,
               priority=0):
     if start_time == None:
       start_time = datetime.utcnow()
@@ -77,7 +81,9 @@ class RunDb:
       'new_signature': new_signature,
       'username': username,
       'tests_repo': tests_repo,
+      'throughput': throughput,
       'priority': priority,
+      'internal_priority': - time.mktime(start_time.timetuple()),
     }
 
     if sprt != None:
@@ -209,7 +215,7 @@ class RunDb:
                            {'args.threads': { '$lte': max_threads }},
                            {'_id': { '$nin': exclusion_list}},
                            {'approved': True}]},
-      'sort': [('args.priority', DESCENDING), ('_id', ASCENDING)],
+      'sort': [('args.priority', DESCENDING), ('args.internal_priority', DESCENDING), ('_id', ASCENDING)],
       'update': {
         '$set': {
           'tasks.$.active': True,
@@ -230,15 +236,12 @@ class RunDb:
         latest_time = task['last_updated']
         task_id = idx
 
-    # Lower priority of long running tests
-    if task_id > 40 and 'sprt' in run['args'] and run['args']['priority'] == 0:
-      run['args']['priority'] = -1
-      self.runs.save(run)
-
-    # Lower priority of LTC long running tests
-    if task_id > 50 and 'sprt' in run['args'] and parse_tc(run['args']['tc']) > 100:
-      run['args']['priority'] = -3
-      self.runs.save(run)
+    # Recalculate internal priority based on task start date and throughput
+    # Formula: - second_since_epoch - played_and_allocated_tasks * 3600 * 1000 / games_throughput
+    # With default value 'throughput = 1000', this means that the priority is unchanged as long as we play at rate '1000 games / hour'.
+    if (run['args']['throughput'] != None and run['args']['throughput'] != 0):
+      run['args']['internal_priority'] = - time.mktime(run['start_time'].timetuple()) - task_id * 3600 * 1000 / run['args']['throughput']
+    self.runs.save(run)
 
     return {'run': run, 'task_id': task_id}
 
